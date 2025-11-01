@@ -382,6 +382,9 @@ fi
    ```bash
    # Reconfigure the CLI
    trustpin-cli configure
+
+   # Check where config is located (with verbose)
+   trustpin-cli user info --verbose
    ```
 
 2. **Invalid API Token**
@@ -392,11 +395,23 @@ fi
 
 3. **Network Issues**
    ```bash
+   # Use verbose mode to see HTTP status codes and errors
+   trustpin-cli projects list --verbose
+
    # Test connectivity
    curl -H "Authorization: Bearer $TRUSTPIN_API_TOKEN" https://api.trustpin.cloud/users
    ```
 
-4. **Permission Denied**
+4. **HTTP Errors (401, 403, 404, 500, etc.)**
+   ```bash
+   # Use verbose mode to see detailed error information
+   trustpin-cli projects get <org-id> <project-id> --verbose
+   # Output will show:
+   # ❌ HTTP Error: GET https://api.trustpin.cloud/projects/...
+   #    Status: 404 Not Found
+   ```
+
+5. **Permission Denied**
    ```bash
    # Make sure binary is executable
    chmod +x trustpin-cli
@@ -410,6 +425,21 @@ trustpin-cli --debug user info
 
 # Enable HTTP request logging
 trustpin-cli --log-http projects list
+
+# Enable verbose output (shows config file, API URLs, HTTP status codes)
+trustpin-cli --verbose projects list
+```
+
+**Verbose Mode Example Output:**
+```bash
+$ trustpin-cli projects list --verbose
+ℹ️  Checking configuration...
+ℹ️  Config file: /Users/user/.trustpin/cli/config.properties
+ℹ️  Configuration is valid
+ℹ️  Using API Base URL: https://api.trustpin.cloud
+ℹ️  Making request: GET https://api.trustpin.cloud/projects
+ℹ️  Using API Token: tp_4ioRUFH...SQ==
+✅ HTTP Success: GET https://api.trustpin.cloud/projects (200)
 ```
 
 ## Support
