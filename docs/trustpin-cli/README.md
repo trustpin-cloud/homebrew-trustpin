@@ -18,7 +18,7 @@ A powerful command-line interface for TrustPin certificate pinning management. M
 
 ```bash
 # Add TrustPin tap
-brew tap trustpin-cloud/trustpin
+brew tap trustpin-cloud/trustpin-cli
 
 # Install TrustPin CLI
 brew install trustpin-cli
