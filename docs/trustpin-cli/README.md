@@ -87,7 +87,7 @@ trustpin-cli configure [--api-base-url <url>] [--api-token <token>]
 $ trustpin-cli configure
 API Base URL (https://api.trustpin.cloud): https://api.trustpin.cloud
 API Token: tp_your_token_here
-✅ Configuration saved successfully!
+ Configuration saved successfully!
 ```
 
 ### User Management
@@ -246,27 +246,27 @@ trustpin-cli projects sign <organization-id> <project-id> [--private-key <path>]
 $ trustpin-cli projects sign fb52418e-b5ae-4bff-b973-6da9ae07ba00 df9964a9-66bf-4673-9743-adee9ce6213e
 Master password: ****
 [1/5] Getting project information
-ℹ️  Project: TrustPin Mobile App (Managed CDN with Cloud Keys)
+  Project: TrustPin Mobile App (Managed CDN with Cloud Keys)
 [2/5] Loading project configuration
-ℹ️  Configuration loaded with 4 domains
+  Configuration loaded with 4 domains
 [3/5] Preparing private key
-ℹ️  Using cloud-managed private key
+  Using cloud-managed private key
 [4/5] Creating and signing JWT
-ℹ️  JWT signed successfully
+  JWT signed successfully
 [5/5] Uploading signed configuration
-✅ Configuration published successfully!
+ Configuration published successfully!
 
 # Sign with bring-your-own-key (BYOK)
 $ trustpin-cli projects sign fb52418e-b5ae-4bff-b973-6da9ae07ba00 99acf096-79b9-4fa6-a115-14b35b224839 --private-key ./my-private-key.pem
 Master password: ****
 [1/5] Getting project information
-ℹ️  Project: BYOK Project (Managed CDN with Bring Your Own Keys)
+  Project: BYOK Project (Managed CDN with Bring Your Own Keys)
 [2/5] Loading project configuration
 [3/5] Preparing private key
-ℹ️  Reading private key from file: ./my-private-key.pem
+  Reading private key from file: ./my-private-key.pem
 [4/5] Creating and signing JWT
 [5/5] Uploading signed configuration
-✅ Configuration published successfully!
+ Configuration published successfully!
 ```
 
 ## Output Formats
@@ -367,9 +367,9 @@ done
 ```bash
 # Check if configuration is valid
 if trustpin-cli user info --output json | jq -e '.status == "success"' > /dev/null; then
-  echo "✅ Configuration is valid"
+  echo " Configuration is valid"
 else
-  echo "❌ Configuration is invalid"
+  echo " Configuration is invalid"
   exit 1
 fi
 ```
