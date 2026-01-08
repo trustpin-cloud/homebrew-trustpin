@@ -27,5 +27,6 @@ brew install trustpin-cli
 ### Update
 
 ```sh
+brew update
 brew upgrade trustpin-cli
 ```
