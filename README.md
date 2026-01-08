@@ -14,6 +14,7 @@ A powerful command-line interface for TrustPin certificate pinning management. M
 - 🔧 **Cross-Platform**: Native binaries for macOS and Linux (Intel & ARM)
 - 🚀 **AWS CLI-style**: Familiar command structure and error handling
 
+### Installation
 
 ```sh
 # Add TrustPin tap
@@ -21,4 +22,10 @@ brew tap trustpin-cloud/trustpin-cli
 
 # Install TrustPin CLI
 brew install trustpin-cli
+```
+
+### Update
+
+```sh
+brew upgrade trustpin-cli
 ```
