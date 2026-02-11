@@ -233,6 +233,88 @@ $ trustpin-cli projects config fb52418e-b5ae-4bff-b973-6da9ae07ba00 df9964a9-66b
 }
 ```
 
+#### `projects upsert`
+Add or update a certificate pin for a domain in a project.
+
+```bash
+trustpin-cli projects upsert <organization-id> <project-id> \
+  --domain <domain-name> \
+  --pin <type>:<value> \
+  [--expires <ISO8601-datetime>] \
+  [--dry-run] \
+  [--verbose] \
+  [--output json]
+```
+
+**Pin Types**:
+- `sha256` - Certificate SHA-256 fingerprint
+- `sha512` - Certificate SHA-512 fingerprint
+- `spki-sha256` - SPKI SHA-256 fingerprint (recommended)
+- `spki-sha512` - SPKI SHA-512 fingerprint
+
+**Examples**:
+```bash
+# Add SPKI SHA-256 pin to existing domain
+$ trustpin-cli projects upsert fb52418e-b5ae-4bff-b973-6da9ae07ba00 df9964a9-66bf-4673-9743-adee9ce6213e \
+  --domain api.trustpin.cloud \
+  --pin spki-sha256:heXXXV6YUWtMPE/dUyZ6ESBpkOibPSeHseRAnp4dQJg= \
+  --expires 2025-09-02T05:43:19Z
+✓ Domain: api.trustpin.cloud
+  • Added pin: spki-sha256:heXXXV6YUW... (expires 2025-09-02T05:43:19Z)
+
+✓ Project updated successfully
+  Configuration version: 5 → 6
+  ⚠️  Remember to sign and publish: trustpin-cli projects sign fb52418e-b5ae-4bff-b973-6da9ae07ba00 df9964a9-66bf-4673-9743-adee9ce6213e
+
+# Update existing pin expiration
+$ trustpin-cli projects upsert fb52418e-b5ae-4bff-b973-6da9ae07ba00 df9964a9-66bf-4673-9743-adee9ce6213e \
+  --domain api.trustpin.cloud \
+  --pin spki-sha256:heXXXV6YUWtMPE/dUyZ6ESBpkOibPSeHseRAnp4dQJg= \
+  --expires 2026-01-15T00:00:00Z
+✓ Domain: api.trustpin.cloud
+  • Updated pin: spki-sha256:heXXXV6YUW...
+    Expiration updated (expires 2026-01-15T00:00:00Z)
+
+# Dry run (show what would be sent without submitting)
+$ trustpin-cli projects upsert fb52418e-b5ae-4bff-b973-6da9ae07ba00 df9964a9-66bf-4673-9743-adee9ce6213e \
+  --domain cdn.trustpin.cloud \
+  --pin sha256:ABC123... \
+  --dry-run
+[DRY RUN] PATCH /projects/tprn::project::fb52418e::df9964a9/domains
+
+Request body:
+{
+  "domains": [
+    {
+      "domain": "api.trustpin.cloud",
+      "pins": [ ... ]
+    },
+    {
+      "domain": "cdn.trustpin.cloud",
+      "pins": [ ... ]
+    }
+  ]
+}
+
+✓ Dry run completed. No changes submitted.
+
+# Verbose output for debugging
+$ trustpin-cli projects upsert fb52418e-b5ae-4bff-b973-6da9ae07ba00 df9964a9-66bf-4673-9743-adee9ce6213e \
+  --domain api.trustpin.cloud \
+  --pin spki-sha256:ABC123... \
+  --verbose
+ℹ️  Validating inputs...
+ℹ️  Domain: api.trustpin.cloud (valid FQDN)
+ℹ️  Pin type: spki-sha256
+ℹ️  Pin value: ABC123... (44 chars, valid base64)
+
+ℹ️  Fetching project...
+ℹ️  Project fetched: TrustPin Mobile App (version 5)
+ℹ️  Domain found: api.trustpin.cloud (3 existing pins)
+ℹ️  Pin not found. Adding new pin...
+...
+```
+
 #### `projects sign`
 Sign project configuration and publish as JWS.
 
@@ -323,18 +405,48 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Install TrustPin CLI
         run: |
           curl -L https://github.com/trustpin-cloud/cloud-console-cli/releases/latest/download/trustpin-cli-linux-x64 -o trustpin-cli
           chmod +x trustpin-cli
           sudo mv trustpin-cli /usr/local/bin/
-      
+
+      - name: Extract certificate pins
+        id: pins
+        run: |
+          # Extract SPKI SHA-256 from certificate
+          SPKI_PIN=$(openssl x509 -in cert.pem -pubkey -noout | \
+            openssl pkey -pubin -outform der | \
+            openssl dgst -sha256 -binary | \
+            base64)
+
+          # Get expiration date
+          EXPIRES=$(openssl x509 -in cert.pem -noout -enddate | \
+            cut -d= -f2 | \
+            xargs -I{} date -d "{}" -u +%Y-%m-%dT%H:%M:%SZ)
+
+          echo "spki_pin=$SPKI_PIN" >> $GITHUB_OUTPUT
+          echo "expires=$EXPIRES" >> $GITHUB_OUTPUT
+
+      - name: Update certificate pin
+        env:
+          TRUSTPIN_API_TOKEN: ${{ secrets.TRUSTPIN_API_TOKEN }}
+        run: |
+          trustpin-cli projects upsert \
+            ${{ vars.ORG_ID }} ${{ vars.PROJECT_ID }} \
+            --domain api.example.com \
+            --pin spki-sha256:${{ steps.pins.outputs.spki_pin }} \
+            --expires ${{ steps.pins.outputs.expires }} \
+            --output json
+
       - name: Sign and publish configuration
         env:
           TRUSTPIN_API_TOKEN: ${{ secrets.TRUSTPIN_API_TOKEN }}
         run: |
-          trustpin-cli projects sign ${{ vars.ORG_ID }} ${{ vars.PROJECT_ID }} --password ${{ secrets.MASTER_PASSWORD }}
+          trustpin-cli projects sign \
+            ${{ vars.ORG_ID }} ${{ vars.PROJECT_ID }} \
+            --password ${{ secrets.MASTER_PASSWORD }}
 ```
 
 ### Exit Codes
