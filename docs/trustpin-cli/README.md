@@ -351,6 +351,77 @@ Master password: ****
  Configuration published successfully!
 ```
 
+#### `projects jws`
+Fetch the published JWS configuration from CDN.
+
+This command retrieves the currently published certificate pinning configuration that mobile applications are fetching. Use this to verify what configuration is currently published, debug mobile app pinning issues, or validate that `sign` successfully published the configuration.
+
+```bash
+trustpin-cli projects jws <organization-id> <project-id> [--verify] [--decode] [--output-file <path>]
+```
+
+**Options**:
+- `--verify` - Verify JWS signature using public key from CDN
+- `--decode` - Decode and display JWS header and payload
+- `--output-file <path>` - Save JWS to file
+
+**Examples**:
+```bash
+# Fetch raw JWS (default - outputs to stdout)
+$ trustpin-cli projects jws fb52418e-b5ae-4bff-b973-6da9ae07ba00 df9964a9-66bf-4673-9743-adee9ce6213e
+eyJhbGciOiJFUzI1NiIsImtpZCI6InRwcm46OnByb2plY3Q6OmZiNTI0MThlLWI1YWUtNGJmZi1iOTczLTZkYTlhZTA3YmEwMDo6OWNhYWVhMGEtMDEzZS00ZTdiLTgwZWEtY2VlNmJmYjUyYjM2LWtleSIsInR5cCI6IkpXVCJ9.eyJkb21haW5zIjpbeyJkb21haW4iOiJnb29nbGUuY29tIiwibGFzdF91cGRhdGVkIjoxNzcwNzk4NTY1LCJwaW5zIjpbeyJleHBpcmVzX2F0IjoxNzc2MDY5NDIyLCJzcGtpX3NoYTI1NiI6Im94VlNkQ0xndGhMM001Vm5uemVwcThXV2xrVWZSUFlrcGpMcG0rd24rMW89Iiwic3BraV9zaGE1MTIiOiJKcnV4ZFdlOTZiL1V1enVzbDNaUlRRZjIzYit2WldPOHdLR2E1NWRsMXRYcUhJeng2a0N1ZGtwMXlKOUVnUnhWaGl5SC9oeDRsNDVRODdNQ3NoUnNwQT09In0seyJzaGEyNTYiOiIwSllveGJCV0N5ZUVsemV5ZUZ3cis0MUFreTlZaHVId2lZbjBrbDdxcGI0PSJ9XX1dLCJpYXQiOjE3NzA3OTg2ODQsIm5iZiI6MTc3MDc5ODY4NCwic3BlYyI6InYxLjAuMCIsInZlcnNpb24iOjN9.ec7NYhkKtrzlaHvOvASUuaZgcaXOz3Ha8EXL3lmSTMZV8hlCNSAdS1GZLRCSxLOPVFXj4otwUsl4a8PGo-OW3A
+
+# Verify JWS signature
+$ trustpin-cli projects jws fb52418e-b5ae-4bff-b973-6da9ae07ba00 df9964a9-66bf-4673-9743-adee9ce6213e --verify --verbose
+ℹ️  Fetching project information...
+ℹ️  Project: TrustPin Mobile App
+ℹ️  Fetching JWS from CDN: https://cdn.trustpin.cloud/...
+ℹ️  JWS fetched successfully (772 bytes)
+ℹ️  Fetching public key from CDN: https://cdn.trustpin.cloud/...
+ℹ️  Public key fetched (188 bytes)
+ℹ️  JWS signature verified successfully
+eyJhbGciOiJFUzI1NiIsImtpZCI6InRwcm46OnByb2plY3Q6OmZiNTI0MThlLWI1YWUtNGJmZi1iOTczLTZkYTlhZTA3YmEwMDo6OWNhYWVhMGEtMDEzZS00ZTdiLTgwZWEtY2VlNmJmYjUyYjM2LWtleSIsInR5cCI6IkpXVCJ9...
+
+# Decode and display JWS payload
+$ trustpin-cli projects jws fb52418e-b5ae-4bff-b973-6da9ae07ba00 df9964a9-66bf-4673-9743-adee9ce6213e --decode
+JWS Header:
+  Algorithm: ES256
+  Type: JWT
+  Key ID: tprn::project::fb52418e-b5ae-4bff-b973-6da9ae07ba00::9caaea0a-013e-4e7b-80ea-cee6bfb52b36-key
+
+Payload:
+  Spec: v1.0.0
+  Version: 3
+  Issued At: 2025-12-11T13:24:44Z
+  Not Before: 2025-12-11T13:24:44Z
+  Domains: 1
+    - google.com (2 pins)
+
+Project: TrustPin Mobile App
+Current DB Version: 3
+Published Version: 3
+
+✅ Published version is up to date
+
+# Save JWS to file
+$ trustpin-cli projects jws fb52418e-b5ae-4bff-b973-6da9ae07ba00 df9964a9-66bf-4673-9743-adee9ce6213e --output-file config.jws --verbose
+ℹ️  Fetching project information...
+ℹ️  Project: TrustPin Mobile App
+ℹ️  Fetching JWS from CDN: https://cdn.trustpin.cloud/...
+ℹ️  JWS fetched successfully (772 bytes)
+✅ JWS saved to: config.jws
+
+# Pipe to mobile app simulator for testing
+$ trustpin-cli projects jws fb52418e-b5ae-4bff-b973-6da9ae07ba00 df9964a9-66bf-4673-9743-adee9ce6213e | ./test-mobile-app
+```
+
+**Use Cases**:
+- **Verify published configuration**: Check what configuration is currently live in production
+- **Debug mobile app issues**: Compare what the app is fetching vs what you expect
+- **Validate signing**: Confirm that `sign` command successfully published the configuration
+- **Testing**: Download JWS for local testing with mobile app simulators
+- **Auditing**: Archive JWS configurations for compliance and audit trails
+
 ## Output Formats
 
 The CLI supports multiple output formats:
