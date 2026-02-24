@@ -7,6 +7,7 @@ A powerful command-line interface for TrustPin certificate pinning management. M
 - 🔐 **Secure Configuration Management**: Store API credentials securely
 - 👤 **User Management**: Get user information and organization details
 - 📁 **Project Management**: List, view, and manage TrustPin projects
+- 🌐 **Domain Certificate Lookup**: Discover SSL/TLS certificates and pins for any domain
 - 🔑 **Certificate Signing**: Sign and publish certificate pinning configurations
 - 📊 **Machine-Readable Output**: JSON output for CI/CD integration
 - 🔧 **Cross-Platform**: Native binaries for macOS and Linux (Intel & ARM)
@@ -422,6 +423,78 @@ $ trustpin-cli projects jws fb52418e-b5ae-4bff-b973-6da9ae07ba00 df9964a9-66bf-4
 - **Testing**: Download JWS for local testing with mobile app simulators
 - **Auditing**: Archive JWS configurations for compliance and audit trails
 
+### Domain Management
+
+#### `domains certificates`
+Look up all known SSL/TLS certificates for a domain, including the live certificate and any certificates discovered via Certificate Transparency logs.
+
+Use this to find certificate pins before adding them to a project with `projects upsert`.
+
+```bash
+trustpin-cli domains certificates <domain-name> [--output json]
+```
+
+**Examples**:
+```bash
+# Human-readable format
+$ trustpin-cli domains certificates api.example.com
+
+═══ Certificates for api.example.com ═══
+  Total certificates: 2
+
+── Certificate 1 ──
+  Common Name: api.example.com
+  Issuer: Let's Encrypt Authority X3
+  SHA-256: heXXXV6YUWtMPE/dUyZ6ESBpkOibPSeHseRAnp4dQJg=
+  SHA-512: JruxdWe96b/Uuzusl3ZRTQf23b+vZWO8wKGa55dl1tXq...
+  SPKI SHA-256: oxVSdCLgthL3M5Vnnzepq8WWlkUfRPYkpjLpm+wn+1o=
+  SPKI SHA-512: abc123def456...
+  Expires At: 2026-04-13T08:37:02Z
+  CAA Issuer: letsencrypt.org
+  CT Issuer CN: Let's Encrypt Authority X3
+  CT SCT Logs: 2
+
+── Certificate 2 ──
+  Common Name: *.example.com
+  Issuer: DigiCert SHA2 Extended Validation Server CA
+  ...
+
+# JSON format for automation
+$ trustpin-cli domains certificates api.example.com --output json
+{
+  "status": "success",
+  "operation": "domains-certificates",
+  "data": {
+    "domain": "api.example.com",
+    "certificates": [
+      {
+        "domain": "api.example.com",
+        "commonName": "api.example.com",
+        "issuer": "Let's Encrypt Authority X3",
+        "sha256": "heXXXV6YUWtMPE/dUyZ6ESBpkOibPSeHseRAnp4dQJg=",
+        "sha512": "...",
+        "spkiSha256": "oxVSdCLgthL3M5Vnnzepq8WWlkUfRPYkpjLpm+wn+1o=",
+        "spkiSha512": "...",
+        "expiresAt": "2026-04-13T08:37:02Z",
+        "transparencyInfo": {
+          "sct_log_ids": ["log-id-1", "log-id-2"],
+          "issuer_cn": "Let's Encrypt Authority X3"
+        },
+        "caaIssuer": "letsencrypt.org"
+      }
+    ]
+  }
+}
+
+# Use with upsert to pin a discovered certificate
+SPKI=$(trustpin-cli domains certificates api.example.com --output json | \
+  jq -r '.data.certificates[0].spkiSha256')
+trustpin-cli projects upsert $ORG_ID $PROJECT_ID \
+  --domain api.example.com \
+  --pin spki-sha256:$SPKI \
+  --expires 2026-04-13T08:37:02Z
+```
+
 ## Output Formats
 
 The CLI supports multiple output formats:
@@ -519,6 +592,273 @@ jobs:
             ${{ vars.ORG_ID }} ${{ vars.PROJECT_ID }} \
             --password ${{ secrets.MASTER_PASSWORD }}
 ```
+
+### AWS: Automated Certificate Pinning on ACM Renewal
+
+When AWS Certificate Manager (ACM) automatically renews a certificate, this workflow detects the renewal via EventBridge, extracts the new certificate's pins, upserts them into TrustPin, and signs/publishes the configuration using a BYOK private key stored in AWS Secrets Manager.
+
+#### Architecture
+
+```
+ACM Certificate Renewal
+        │
+        ▼
+  EventBridge Rule ──▶ Lambda Function
+  (ACM Action event)       │
+                           ├── 1. Get certificate from ACM (aws sdk)
+                           ├── 2. Extract SPKI pin (openssl)
+                           ├── 3. Upsert pin (trustpin-cli projects upsert)
+                           ├── 4. Fetch BYOK key from Secrets Manager
+                           └── 5. Sign & publish (trustpin-cli projects sign --private-key)
+```
+
+**Prerequisites**:
+- ACM certificate with automatic renewal enabled
+- TrustPin project configured with BYOK (Bring Your Own Key)
+- BYOK private key stored in AWS Secrets Manager
+- TrustPin API token stored in AWS Secrets Manager
+
+#### SAM Template (`template.yaml`)
+
+```yaml
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  Automated TrustPin certificate pin updates on ACM certificate renewal.
+  Detects ACM renewals via EventBridge, extracts pins, and publishes
+  signed configuration using BYOK.
+
+Parameters:
+  TrustPinOrgId:
+    Type: String
+    Description: TrustPin organization ID
+  TrustPinProjectId:
+    Type: String
+    Description: TrustPin project ID
+  AcmCertificateArn:
+    Type: String
+    Description: ARN of the ACM certificate to monitor
+  Domain:
+    Type: String
+    Description: Domain name associated with the certificate (e.g., api.example.com)
+  TrustPinApiTokenSecretArn:
+    Type: String
+    Description: ARN of the Secrets Manager secret containing the TrustPin API token
+  ByokPrivateKeySecretArn:
+    Type: String
+    Description: ARN of the Secrets Manager secret containing the BYOK private key (PEM)
+
+Resources:
+  # EventBridge rule: triggers on ACM certificate renewal
+  AcmRenewalRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Description: Triggers on ACM certificate renewal completion
+      EventPattern:
+        source:
+          - aws.acm
+        detail-type:
+          - "ACM Certificate Action"
+        detail:
+          ActionType:
+            - RENEWAL
+          CertificateArn:
+            - !Ref AcmCertificateArn
+      State: ENABLED
+      Targets:
+        - Id: TrustPinPinUpdater
+          Arn: !GetAtt PinUpdaterFunction.Arn
+
+  # Permission for EventBridge to invoke the Lambda
+  AcmRenewalPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref PinUpdaterFunction
+      Action: lambda:InvokeFunction
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt AcmRenewalRule.Arn
+
+  # Lambda function: updates TrustPin pins on renewal
+  PinUpdaterFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: trustpin-acm-pin-updater
+      Runtime: provided.al2023
+      Handler: bootstrap
+      Timeout: 120
+      MemorySize: 256
+      Architectures:
+        - x86_64
+      Environment:
+        Variables:
+          TRUSTPIN_ORG_ID: !Ref TrustPinOrgId
+          TRUSTPIN_PROJECT_ID: !Ref TrustPinProjectId
+          DOMAIN: !Ref Domain
+          ACM_CERTIFICATE_ARN: !Ref AcmCertificateArn
+          API_TOKEN_SECRET_ARN: !Ref TrustPinApiTokenSecretArn
+          BYOK_KEY_SECRET_ARN: !Ref ByokPrivateKeySecretArn
+      Policies:
+        - Version: '2012-10-17'
+          Statement:
+            # Read the ACM certificate
+            - Effect: Allow
+              Action:
+                - acm:GetCertificate
+                - acm:DescribeCertificate
+              Resource: !Ref AcmCertificateArn
+            # Read secrets (API token + BYOK private key)
+            - Effect: Allow
+              Action:
+                - secretsmanager:GetSecretValue
+              Resource:
+                - !Ref TrustPinApiTokenSecretArn
+                - !Ref ByokPrivateKeySecretArn
+```
+
+#### Lambda Handler Script (`handler.sh`)
+
+The Lambda uses a custom runtime (`provided.al2023`) to run a shell script with the TrustPin CLI binary bundled in the deployment package.
+
+```bash
+#!/bin/bash
+set -euo pipefail
+
+# --- Custom Lambda Runtime Loop ---
+# Polls the Lambda Runtime API for invocation events and processes them.
+RUNTIME_API="http://${AWS_LAMBDA_RUNTIME_API}/2018-06-01/runtime"
+
+while true; do
+  # Get next event
+  HEADERS=$(mktemp)
+  EVENT=$(curl -sS -D "$HEADERS" "${RUNTIME_API}/invocation/next")
+  REQUEST_ID=$(grep -i "Lambda-Runtime-Aws-Request-Id" "$HEADERS" | tr -d '\r' | cut -d' ' -f2)
+
+  # Process the event
+  RESPONSE=$(process_event "$EVENT" 2>&1) && STATUS="success" || STATUS="error"
+
+  if [ "$STATUS" = "success" ]; then
+    curl -sS -X POST "${RUNTIME_API}/invocation/${REQUEST_ID}/response" \
+      -d "{\"status\": \"success\", \"message\": \"$RESPONSE\"}"
+  else
+    curl -sS -X POST "${RUNTIME_API}/invocation/${REQUEST_ID}/error" \
+      -d "{\"errorType\": \"PinUpdateError\", \"errorMessage\": \"$RESPONSE\"}"
+  fi
+
+  rm -f "$HEADERS"
+done
+
+process_event() {
+  local EVENT="$1"
+  local CERT_ARN="$ACM_CERTIFICATE_ARN"
+
+  echo "Processing ACM renewal for certificate: $CERT_ARN"
+
+  # Step 1: Retrieve TrustPin API token from Secrets Manager
+  export TRUSTPIN_API_TOKEN=$(aws secretsmanager get-secret-value \
+    --secret-id "$API_TOKEN_SECRET_ARN" \
+    --query 'SecretString' --output text)
+
+  # Step 2: Retrieve BYOK private key from Secrets Manager
+  PRIVATE_KEY_FILE=$(mktemp /tmp/byok-key-XXXXXX.pem)
+  aws secretsmanager get-secret-value \
+    --secret-id "$BYOK_KEY_SECRET_ARN" \
+    --query 'SecretString' --output text > "$PRIVATE_KEY_FILE"
+  chmod 600 "$PRIVATE_KEY_FILE"
+
+  # Step 3: Export the renewed certificate from ACM
+  CERT_FILE=$(mktemp /tmp/cert-XXXXXX.pem)
+  aws acm get-certificate \
+    --certificate-arn "$CERT_ARN" \
+    --query 'Certificate' --output text > "$CERT_FILE"
+
+  # Step 4: Extract SPKI SHA-256 pin and expiration from the certificate
+  SPKI_SHA256=$(openssl x509 -in "$CERT_FILE" -pubkey -noout | \
+    openssl pkey -pubin -outform der | \
+    openssl dgst -sha256 -binary | \
+    base64)
+
+  EXPIRES=$(openssl x509 -in "$CERT_FILE" -noout -enddate | \
+    cut -d= -f2 | \
+    xargs -I{} date -d "{}" -u +%Y-%m-%dT%H:%M:%SZ)
+
+  echo "Extracted SPKI SHA-256: ${SPKI_SHA256:0:20}..."
+  echo "Certificate expires: $EXPIRES"
+
+  # Step 5: Upsert the pin into TrustPin
+  ./trustpin-cli projects upsert \
+    "$TRUSTPIN_ORG_ID" "$TRUSTPIN_PROJECT_ID" \
+    --domain "$DOMAIN" \
+    --pin "spki-sha256:${SPKI_SHA256}" \
+    --expires "$EXPIRES" \
+    --output json
+
+  # Step 6: Sign and publish with BYOK private key
+  ./trustpin-cli projects sign \
+    "$TRUSTPIN_ORG_ID" "$TRUSTPIN_PROJECT_ID" \
+    --private-key "$PRIVATE_KEY_FILE"
+
+  # Cleanup sensitive files
+  rm -f "$PRIVATE_KEY_FILE" "$CERT_FILE"
+
+  echo "Pin updated and configuration published for $DOMAIN"
+}
+```
+
+#### Deployment
+
+```bash
+# 1. Create the deployment package
+mkdir -p build
+cp handler.sh build/bootstrap
+chmod +x build/bootstrap
+
+# Download the TrustPin CLI Linux binary into the package
+curl -L https://github.com/trustpin-cloud/cloud-console-cli/releases/latest/download/trustpin-cli-linux-x64 \
+  -o build/trustpin-cli
+chmod +x build/trustpin-cli
+
+cd build && zip -r ../function.zip . && cd ..
+
+# 2. Store secrets in AWS Secrets Manager
+aws secretsmanager create-secret \
+  --name trustpin/api-token \
+  --secret-string "tp_your_token_here"
+
+aws secretsmanager create-secret \
+  --name trustpin/byok-private-key \
+  --secret-string file://private-key.pem
+
+# 3. Deploy with SAM
+sam deploy \
+  --template-file template.yaml \
+  --stack-name trustpin-acm-auto-pin \
+  --capabilities CAPABILITY_IAM \
+  --parameter-overrides \
+    TrustPinOrgId=fb52418e-b5ae-4bff-b973-6da9ae07ba00 \
+    TrustPinProjectId=9caaea0a-013e-4e7b-80ea-cee6bfb52b36 \
+    AcmCertificateArn=arn:aws:acm:us-east-1:123456789012:certificate/abc-def-123 \
+    Domain=api.example.com \
+    TrustPinApiTokenSecretArn=arn:aws:secretsmanager:us-east-1:123456789012:secret:trustpin/api-token-AbCdEf \
+    ByokPrivateKeySecretArn=arn:aws:secretsmanager:us-east-1:123456789012:secret:trustpin/byok-private-key-GhIjKl
+
+# 4. Test with a manual invocation
+aws lambda invoke \
+  --function-name trustpin-acm-pin-updater \
+  --payload '{"detail":{"ActionType":"RENEWAL"}}' \
+  response.json && cat response.json
+```
+
+**What happens on ACM renewal**:
+1. ACM renews the certificate (automatic, managed by AWS)
+2. EventBridge detects the `ACM Certificate Action` event with `ActionType: RENEWAL`
+3. Lambda is invoked automatically
+4. Lambda exports the renewed certificate from ACM via the AWS SDK
+5. Extracts the SPKI SHA-256 pin and expiration using `openssl`
+6. Upserts the pin into TrustPin with `trustpin-cli projects upsert`
+7. Signs and publishes the configuration using the BYOK private key with `trustpin-cli projects sign --private-key`
+8. Mobile apps fetch the updated configuration from the CDN on their next refresh
+
+**Important**: ACM generates new key pairs on renewal (key reuse is not supported). This means the SPKI pin **will change** on every renewal. This workflow handles that automatically by upserting the new pin before the old certificate expires. Consider keeping both old and new pins active to allow mobile apps time to fetch the updated configuration.
 
 ### Exit Codes
 
