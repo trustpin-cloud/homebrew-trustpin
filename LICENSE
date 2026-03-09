@@ -22,22 +22,22 @@ By using the Software, you agree to the following terms:
 
 You may not access TrustPin APIs directly outside of these authorized interfaces, including but not limited to web scraping, reverse-engineering API endpoints, or creating custom clients that interact with TrustPin services, without explicit written authorization.
 
-1. **Trademark Notice**  
-   "TrustPin" and the TrustPin logo are trademarks of Ezequiel Leonardo Aceto. You may not use these trademarks without express written permission, except as necessary for the proper attribution described below.
+1. **Trademark Notice**
+   "TrustPin" and the TrustPin logo are trademarks of Capa7 LLC. You may not use these trademarks without express written permission, except as necessary for the proper attribution described below.
 1. **Attribution (Required)**  
    If you integrate the Software into your own applications, you must prominently display the following notice in your application's "About" screen, license page, or comparable documentation. The notice must be clearly visible, in a font size no smaller than 10pt (or visually equivalent):
    
    "Uses TrustPin™ technology – https://trustpin.cloud"
-1. **Source Code Restrictions**  
-   This license does not grant access to, or any rights over, the source code of the Software. All rights, title, and interest in and to the Software, including all associated intellectual property, remain the sole property of Ezequiel Leonardo Aceto. This license does not grant you any ownership of the Software or the TrustPin trademark.
+1. **Source Code Restrictions**
+   This license does not grant access to, or any rights over, the source code of the Software. All rights, title, and interest in and to the Software, including all associated intellectual property, remain the sole property of Capa7 LLC. This license does not grant you any ownership of the Software or the TrustPin trademark.
 1. **Competitive Use Restrictions**  
    You may not use the Software to build, develop, or offer any product or service that competes with TrustPin, or to bypass usage restrictions, rate limits, or other limitations defined in your TrustPin plan. This includes, but is not limited to, creating alternative interfaces, wrappers, or derivative services that replicate or replace TrustPin functionality.
 1. **Plan Termination**  
    If your TrustPin plan is cancelled, suspended, or expired, your license to use the Software is automatically revoked. You must cease all use and remove the Software from your systems within 30 days of termination.
-1. **No Warranty**  
-   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND. Ezequiel Leonardo Aceto DISCLAIMS ALL WARRANTIES, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, AND NON-INFRINGEMENT.
-1. **Limitation of Liability**  
-   IN NO EVENT SHALL Ezequiel Leonardo Aceto BE LIABLE FOR ANY INDIRECT, INCIDENTAL, SPECIAL, CONSEQUENTIAL, OR PUNITIVE DAMAGES ARISING OUT OF OR RELATING TO THIS LICENSE OR THE SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGES.
+1. **No Warranty**
+   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND. Capa7 LLC DISCLAIMS ALL WARRANTIES, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, AND NON-INFRINGEMENT.
+1. **Limitation of Liability**
+   IN NO EVENT SHALL Capa7 LLC BE LIABLE FOR ANY INDIRECT, INCIDENTAL, SPECIAL, CONSEQUENTIAL, OR PUNITIVE DAMAGES ARISING OUT OF OR RELATING TO THIS LICENSE OR THE SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGES.
 1. **Termination for Breach**  
    Your rights under this license terminate automatically upon any material breach of its terms. Upon termination, you must cease all use and destroy all copies of the Software in your possession or control.
 1. **Governing Law and Jurisdiction**  
@@ -53,7 +53,7 @@ You may not access TrustPin APIs directly outside of these authorized interfaces
 
 -----
 
-Copyright (c) 2025 Ezequiel Leonardo Aceto  
-TrustPin is a trademark of Ezequiel Leonardo Aceto (Spanish Trademark Application M4325159)
+Copyright (c) 2025 Capa7 LLC
+TrustPin is a trademark of Capa7 LLC
 
 This license is effective as of the date you first use the Software and remains in effect until terminated in accordance with its terms.
