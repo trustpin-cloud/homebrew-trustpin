@@ -21,9 +21,30 @@ A powerful command-line interface for TrustPin certificate pinning management. M
 # Add TrustPin tap
 brew tap trustpin-cloud/trustpin-cli
 
+# Trust the tap (required once — Homebrew 6.0+ blocks installs from untrusted third-party taps)
+brew trust trustpin-cloud/trustpin-cli
+
 # Install TrustPin CLI
 brew install trustpin-cli
 ```
+
+> **Why `brew trust`?** Since Homebrew 6.0, installing from a third-party tap requires
+> a one-time, per-user trust approval. Without it you'll see
+> `Error: Refusing to load formula … from untrusted tap`. Trust is a local decision on
+> your machine — there's no way for us to pre-approve the tap on your behalf.
+
+#### Brewfile (`brew bundle`)
+
+If you manage installs declaratively with a `Brewfile`, mark the formula as trusted so
+`brew bundle` doesn't prompt or fail:
+
+```ruby
+tap "trustpin-cloud/trustpin-cli"
+brew "trustpin-cloud/trustpin-cli/trustpin-cli", trusted: true
+```
+
+The `trusted: true` option (Homebrew 6.0+) records the trust approval inline, so no
+separate `brew trust` step is needed.
 
 ### GitHub Releases
 
@@ -304,15 +325,15 @@ $ trustpin-cli projects upsert fb52418e-b5ae-4bff-b973-6da9ae07ba00 df9964a9-66b
   --domain api.trustpin.cloud \
   --pin spki-sha256:ABC123... \
   --verbose
-ℹ️  Validating inputs...
-ℹ️  Domain: api.trustpin.cloud (valid FQDN)
-ℹ️  Pin type: spki-sha256
-ℹ️  Pin value: ABC123... (44 chars, valid base64)
+Validating inputs...
+Domain: api.trustpin.cloud (valid FQDN)
+Pin type: spki-sha256
+Pin value: ABC123... (44 chars, valid base64)
 
-ℹ️  Fetching project...
-ℹ️  Project fetched: TrustPin Mobile App (version 5)
-ℹ️  Domain found: api.trustpin.cloud (3 existing pins)
-ℹ️  Pin not found. Adding new pin...
+Fetching project...
+Project fetched: TrustPin Mobile App (version 5)
+Domain found: api.trustpin.cloud (3 existing pins)
+Pin not found. Adding new pin...
 ...
 ```
 
@@ -374,13 +395,13 @@ eyJhbGciOiJFUzI1NiIsImtpZCI6InRwcm46OnByb2plY3Q6OmZiNTI0MThlLWI1YWUtNGJmZi1iOTcz
 
 # Verify JWS signature
 $ trustpin-cli projects jws fb52418e-b5ae-4bff-b973-6da9ae07ba00 df9964a9-66bf-4673-9743-adee9ce6213e --verify --verbose
-ℹ️  Fetching project information...
-ℹ️  Project: TrustPin Mobile App
-ℹ️  Fetching JWS from CDN: https://cdn.trustpin.cloud/...
-ℹ️  JWS fetched successfully (772 bytes)
-ℹ️  Fetching public key from CDN: https://cdn.trustpin.cloud/...
-ℹ️  Public key fetched (188 bytes)
-ℹ️  JWS signature verified successfully
+Fetching project information...
+Project: TrustPin Mobile App
+Fetching JWS from CDN: https://cdn.trustpin.cloud/...
+JWS fetched successfully (772 bytes)
+Fetching public key from CDN: https://cdn.trustpin.cloud/...
+Public key fetched (188 bytes)
+JWS signature verified successfully
 eyJhbGciOiJFUzI1NiIsImtpZCI6InRwcm46OnByb2plY3Q6OmZiNTI0MThlLWI1YWUtNGJmZi1iOTczLTZkYTlhZTA3YmEwMDo6OWNhYWVhMGEtMDEzZS00ZTdiLTgwZWEtY2VlNmJmYjUyYjM2LWtleSIsInR5cCI6IkpXVCJ9...
 
 # Decode and display JWS payload
@@ -402,15 +423,15 @@ Project: TrustPin Mobile App
 Current DB Version: 3
 Published Version: 3
 
-✅ Published version is up to date
+Published version is up to date
 
 # Save JWS to file
 $ trustpin-cli projects jws fb52418e-b5ae-4bff-b973-6da9ae07ba00 df9964a9-66bf-4673-9743-adee9ce6213e --output-file config.jws --verbose
-ℹ️  Fetching project information...
-ℹ️  Project: TrustPin Mobile App
-ℹ️  Fetching JWS from CDN: https://cdn.trustpin.cloud/...
-ℹ️  JWS fetched successfully (772 bytes)
-✅ JWS saved to: config.jws
+Fetching project information...
+Project: TrustPin Mobile App
+Fetching JWS from CDN: https://cdn.trustpin.cloud/...
+JWS fetched successfully (772 bytes)
+JWS saved to: config.jws
 
 # Pipe to mobile app simulator for testing
 $ trustpin-cli projects jws fb52418e-b5ae-4bff-b973-6da9ae07ba00 df9964a9-66bf-4673-9743-adee9ce6213e | ./test-mobile-app
@@ -956,13 +977,13 @@ trustpin-cli --verbose projects list
 **Verbose Mode Example Output:**
 ```bash
 $ trustpin-cli projects list --verbose
-ℹ️  Checking configuration...
-ℹ️  Config file: /Users/user/.trustpin/cli/config.properties
-ℹ️  Configuration is valid
-ℹ️  Using API Base URL: https://api.trustpin.cloud
-ℹ️  Making request: GET https://api.trustpin.cloud/projects
-ℹ️  Using API Token: tp_4ioRUFH...SQ==
-✅ HTTP Success: GET https://api.trustpin.cloud/projects (200)
+Checking configuration...
+Config file: /Users/user/.trustpin/cli/config.properties
+Configuration is valid
+Using API Base URL: https://api.trustpin.cloud
+Making request: GET https://api.trustpin.cloud/projects
+Using API Token: tp_4ioRUFH...SQ==
+HTTP Success: GET https://api.trustpin.cloud/projects (200)
 ```
 
 ## Support
