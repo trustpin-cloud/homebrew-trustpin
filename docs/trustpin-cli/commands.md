@@ -19,6 +19,7 @@ trustpin-cli
 │   ├── upsert                 Add or update a certificate pin
 │   ├── cleanup                Remove expired certificate pins
 │   ├── sign                   Sign and publish configuration as JWS
+│   ├── refresh-certs          Fetches updated certificate pins for a domain
 │   └── jws                    Fetch the published JWS from the CDN
 └── domains
     └── certificates           Look up certificates and pins for a domain
@@ -216,6 +217,48 @@ Removed 2 expired pin(s)
 
 ---
 
+## projects refresh-certs
+
+Refresh the certificate pins for **one domain** from the certificates TrustPin can currently see.
+
+```bash
+trustpin-cli projects refresh-certs <organization-id> <project-id> \
+  --domain <fqdn> [--remove-expired] [--dry-run] [--output json]
+```
+
+| Flag | Description |
+|---|---|
+| `--domain` | Domain name (FQDN) to refresh — **required** |
+| `--remove-expired` | Also drop pins **for this domain** whose expiry is in the past |
+| `--dry-run` | Show the PATCH request without submitting it |
+
+Where `upsert` requires you to supply a pin by hand, `refresh-certs` looks the certificates up for you: the **live** certificate presented in a TLS handshake, plus every unexpired issuance found in the public **Certificate Transparency** logs. If the domain is not yet in the project, it is added.
+
+- Pins are written as **SPKI SHA-256** — the digest that survives a renewal reusing the same key, and the only one available for CT entries recorded as precertificates.
+- **Existing pins are never discarded.** A certificate that is already pinned has its expiry refreshed rather than being pinned twice, including when the existing pin was added by `upsert` using a different digest type. A pin the lookup did not return is left alone.
+- **If the lookup fails or returns no certificates, nothing changes at all** — including expired-pin removal — so a transient DNS or TLS failure can never strip a domain's pins.
+- Re-running the command when nothing has changed sends no request, so the configuration version is not bumped for no reason.
+
+```text
+$ trustpin-cli projects refresh-certs $ORG_ID $PROJECT_ID --domain api.example.com
+Domain: api.example.com
+  7 certificate(s) returned by TrustPin
+
+  + Added   spki-sha256:heXXXV6YUWtMPE... (expires 2027-01-14T00:00:00Z)
+  ~ Updated spki-sha256:Ab12Cd34Ef56Gh... (expiry 2026-07-01T00:00:00Z -> 2027-03-02T00:00:00Z)
+  = 4 pin(s) already up to date
+
+Project updated successfully
+  Configuration version: 12 -> 13
+  Remember to sign and publish: trustpin-cli projects sign ...
+```
+
+> **Note:** `--remove-expired` is scoped to the domain you name. To sweep expired pins across **every** domain in the project, use [`projects cleanup`](#projects-cleanup) instead.
+
+> **Note:** like `upsert` and `cleanup`, `refresh-certs` updates the stored configuration only — run [`projects sign`](#projects-sign) afterwards to publish.
+
+---
+
 ## projects sign
 
 Sign the project's current configuration as a JWS and publish it to the TrustPin CDN. This is what makes staged changes live for your apps.
@@ -229,6 +272,51 @@ trustpin-cli projects sign <organization-id> <project-id> \
 |---|---|
 | `-k, --private-key` | Path to a PEM private key file — required for BYOK projects |
 | `-p, --password` | Master password for private key decryption (prompted interactively if omitted) |
+| `--dry-run` | Sign and verify locally without publishing — nothing is uploaded |
+
+### Rehearsing with `--dry-run`
+
+`--dry-run` performs every step of a real run — loads the configuration, reads and decrypts the private key, checks it against the project's public key, signs the payload and verifies the resulting signature — and then stops before the upload. Nothing about the project changes.
+
+That makes it the way to confirm a key file and master password are correct, **and that they belong to this project**, before committing to a publish. A mismatched key still fails with `INVALID_KEY_PAIR`; a wrong password still fails with `INCORRECT_PASSWORD`.
+
+```text
+$ trustpin-cli projects sign $ORG_ID $PROJECT_ID --private-key key.pem --dry-run
+[1/4] Getting project information
+[2/4] Loading project configuration
+[3/4] Preparing private key
+  Key pair validation successful
+[4/4] Creating and signing JWT
+  JWS signature verified successfully
+  Dry run: signature verified locally, nothing was uploaded
+Dry run successful - nothing was published
+
+═══ Dry Run Summary ═══
+  Project: my-app
+  Signature Valid: Yes
+  Key Source: BYOK
+  Published: No (dry run)
+  Domains: 2
+```
+
+A dry run reports **four** steps rather than five, because the upload step does not happen.
+
+### Seeing the signed JWS
+
+Both `--dry-run` and `--verbose` print the signed token, so you can inspect or verify it yourself:
+
+```text
+═══ Signed JWS ═══
+  Header: eyJhbGciOiJFUzI1NiIsImtpZCI6...
+  Payload: eyJkb21haW5zIjpbeyJkb21haW4i (354 chars)
+  Signature: uwgnUpsq42OXoTnS2ZfY9fmeDI0y...
+  Length: 533 chars
+
+eyJhbGciOiJFUzI1NiIs....eyJkb21haW5zIjpb....uwgnUpsq42OXoTnS2Zf
+```
+
+The full compact serialization is printed on its own line so it can be copied or piped into a verifier. In `--output json` the same value appears as `data.jws`. It is only included when asked for, because it is long — it is not a secret, since the identical token is served from the public CDN once published.
+
 
 **Cloud-managed keys** — for projects of type *Managed CDN with Cloud Keys*, no key file is needed; you'll be prompted for your master password:
 
@@ -296,24 +384,46 @@ Use cases:
 
 ## domains certificates
 
-Look up all known SSL/TLS certificates for a domain: the live certificate plus any discovered via Certificate Transparency logs. Every certificate is reported with all four pin formats, its expiration, CAA issuer, and CT log information — ready to use with `projects upsert`.
+Look up all known SSL/TLS certificates for a domain: the live certificate plus any discovered via Certificate Transparency logs. Every certificate is reported with all four pin formats, its validity window, subject alternative names, key and signature details, CAA issuer, and CT log information — ready to use with `projects upsert`, or applied automatically by [`projects refresh-certs`](#projects-refresh-certs).
 
 ```bash
 trustpin-cli domains certificates <domain-name> [--output json]
 ```
+
+Each entry is labelled with where it was observed — `(live)` for the certificate the server actually presents in a TLS handshake, `(Certificate Transparency)` for one found in the public logs — and a summary line counts each.
 
 ```text
 $ trustpin-cli domains certificates api.example.com
 
 ═══ Certificates for api.example.com ═══
   Total certificates: 2
+  Sources: 1 live, 1 from Certificate Transparency
 
-── Certificate 1 ──
+── Certificate 1 (live) ──
   Common Name: api.example.com
-  Issuer: Let's Encrypt Authority X3
+  Issuer: CN=R11,O=Let's Encrypt,C=US
+  Subject Alt Names: api.example.com, www.example.com
+  Valid From: 2026-03-01T00:00:00Z
+  Expires At: 2026-12-31T23:59:59Z
+  Public Key: EC 256 bits
+  Signature Algorithm: SHA256-RSA
   SHA-256: heXXXV6YUWtMPE/dUyZ6ESBpkOibPSeHseRAnp4dQJg=
   SPKI SHA-256: oxVSdCLgthL3M5Vnnzepq8WWlkUfRPYkpjLpm+wn+1o=
-  Expires At: 2026-04-13T08:37:02Z
   CAA Issuer: letsencrypt.org
   CT SCT Logs: 2
+
+── Certificate 2 (Certificate Transparency) ──
+  Common Name: api.example.com
+  Issuer: CN=R10,O=Let's Encrypt,C=US
+  Expires At: 2027-01-31T23:59:59Z
+  SHA-256: (not available for this record)
+  SHA-512: (not available for this record)
+  SPKI SHA-256: fFq2hLnpGYtMuP8wR3vKdN7xZaQcEj5TbVm1oXsY9Uk=
 ```
+
+Two things worth knowing when reading the output:
+
+- **`(not available for this record)` is expected, not an error.** A CT log entry that holds only the *precertificate* has no usable certificate digest — a precertificate's hash never matches what a server sends, so the API withholds it rather than offering an unpinnable value. The **SPKI** digest is shared between a certificate and its precertificate, which is why it is always present and why it is the pin TrustPin recommends.
+- **`Valid From` may be flagged `(not yet valid)`.** A certificate issued ahead of its deployment can be pinned before the server starts serving it, so it is shown rather than hidden.
+
+`--output json` returns every field of the API response verbatim, including `source`, `subjectAlternativeNames`, `notBefore`, `keyAlgorithm`, `keySize` and `signatureAlgorithm`.
