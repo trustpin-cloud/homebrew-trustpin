@@ -11,7 +11,7 @@ The CLI is designed for unattended use: every command supports JSON output, cred
 
 ## Environment variables
 
-Skip `trustpin-cli configure` entirely by exporting credentials — ideal for CI runners and containers:
+Skip `trustpin-cli configure` entirely by exporting credentials — ideal for CI runners and containers. Set variables take precedence over the configuration file; an empty one counts as unset:
 
 ```bash
 export TRUSTPIN_API_BASE_URL=https://api.trustpin.cloud
@@ -173,5 +173,16 @@ jobs:
 - For **BYOK** projects, write the PEM key from your secret store to a temporary file, pass it with `--private-key`, and delete it afterwards.
 - `projects upsert` and `projects cleanup` only stage changes — a pipeline is not done until `projects sign` succeeds.
 - Use `projects jws --verify` as a post-deploy check that the published configuration is live and correctly signed.
+
+## Publishing attestation policies
+
+`projects attestation update` stores a policy kept in your repository, and `projects attestation sign` publishes it. `sign` succeeds without signing when the current version is already published, so the pair is safe to run on every merge:
+
+```bash
+trustpin-cli projects attestation update "$ORG_ID" "$PROJECT_ID" --file attestation.json
+trustpin-cli projects attestation sign "$ORG_ID" "$PROJECT_ID" --private-key "$KEY_FILE" --output json
+```
+
+A full GitHub Actions workflow, signing in one job and publishing from another, and the error codes are in the [attestation DevOps guide](https://github.com/trustpin-cloud/cloud-console-cli/blob/main/DEVOPS_ATTESTATION.md).
 
 > **Note on certificate renewals:** if your certificate authority generates a new key pair on renewal (AWS ACM does, for example), SPKI pins change with every renewal. Automate the upsert-and-sign flow around your renewal events, and consider keeping both the old and new pins active during rollover so apps have time to fetch the updated configuration.

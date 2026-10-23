@@ -20,6 +20,7 @@ The official command-line interface for [TrustPin](https://trustpin.cloud) certi
 - **Domain certificate lookup** — discover SSL/TLS certificates and pins for any domain, including certificates found in Certificate Transparency logs
 - **Pin lifecycle** — add and update pins, and clean up expired ones
 - **Signing & publishing** — sign configurations as JWS with cloud-managed keys or your own key (BYOK) and publish them to the TrustPin CDN
+- **App attestation** — edit, sign and publish attestation policies, and download the deployment bundle of the self-hosted verifier
 - **Machine-readable output** — `--output json` and stable exit codes for automation
 - **Cross-platform** — native binaries for macOS and Linux (Intel & ARM)
 

@@ -20,7 +20,14 @@ trustpin-cli
 │   ├── cleanup                Remove expired certificate pins
 │   ├── sign                   Sign and publish configuration as JWS
 │   ├── refresh-certs          Fetches updated certificate pins for a domain
-│   └── jws                    Fetch the published JWS from the CDN
+│   ├── jws                    Fetch the published JWS from the CDN
+│   └── attestation
+│       ├── get                Show attestation status, policy and deployment
+│       ├── update             Change the policy or deployment identifiers
+│       ├── config             Get the policy payload to sign (JSON)
+│       ├── sign               Sign the current policy version and publish it
+│       ├── publish            Publish a policy signed elsewhere
+│       └── bundle             Download the verifier deployment bundle
 └── domains
     └── certificates           Look up certificates and pins for a domain
 ```
@@ -379,6 +386,113 @@ Use cases:
 - **Validate signing** — confirm that `projects sign` actually published
 - **Debug pinning issues** — compare what the app fetches with what you expect
 - **Testing & auditing** — save the JWS for local testing (`--output-file`) or compliance archives
+
+---
+
+## projects attestation
+
+Manage a project's app attestation policy: the file your self-hosted attestation verifiers load from the TrustPin CDN (`attest.jws.b64`). Attestation is set up, and published for the first time, in the TrustPin console; disabling, re-enabling and the go-live checklist stay there too. It is available for cloud-key and BYOK projects.
+
+Like pin configurations, a change takes two steps: `update` stores it as a new policy version, and `sign` signs that version with the project key and publishes it. Running verifiers pick it up at their next policy refresh (every 5 minutes by default), with no redeploy.
+
+The [DevOps guide](https://github.com/trustpin-cloud/cloud-console-cli/blob/main/DEVOPS_ATTESTATION.md) covers CI publishing, signing outside the CLI, and every error code.
+
+### projects attestation get
+
+```bash
+trustpin-cli projects attestation get <organization-id> <project-id> [--output json]
+```
+
+Shows the status (`pending`, `active` or `disabled`), the policy version and the published one, the policy URL, the apps per platform, and the verifier URL of each environment.
+
+```text
+═══ App Attestation ═══
+  Status: active
+  Policy version: 4
+  Published version: 3
+  Policy URL: https://cdn.trustpin.cloud/<org-id>/<project-id>/attest.jws.b64
+
+── Policy ──
+  Mode: enforce
+  Tokens: access tokens 3600s, binding required
+  Apple: 1 app(s), development builds refused
+  • ABCDE12345.com.example.app
+  Android: 1 app(s), evidence either
+  • com.example.app (2 signing digest(s))
+  Debug tokens: off
+
+── Deployment ──
+  Environments: 1
+  • production: https://attest.example.com
+
+Version 4 is not published yet: run 'trustpin-cli projects attestation sign <org-id> <project-id>'.
+```
+
+`--output json` returns the full settings, with `data.policy` and `data.deployment` in the shape `update` takes back.
+
+### projects attestation update
+
+```bash
+trustpin-cli projects attestation update <organization-id> <project-id> --file <settings.json | ->
+```
+
+Stores a JSON file holding `{"policy": …, "deployment": …}`, either or both and nothing else. A policy that differs from the stored one becomes a new version; an identical one keeps its version; deployment identifiers never change it. The API rejects the first invalid field and names it (`policy.android.apps[0].signingCertSha256[1]: …`), including misspelt field names.
+
+```bash
+trustpin-cli projects attestation get $ORG_ID $PROJECT_ID --output json \
+  | jq '.data | {policy, deployment}' > attestation.json
+trustpin-cli projects attestation update $ORG_ID $PROJECT_ID --file attestation.json
+```
+
+### projects attestation sign
+
+```bash
+trustpin-cli projects attestation sign <organization-id> <project-id> \
+  [--private-key <path>] [--password <password>] [--dry-run] [--jws-out <file>] [--output json]
+```
+
+| Flag | Description |
+|---|---|
+| `-k, --private-key` | Path to a PEM private key file — required for BYOK projects |
+| `-p, --password` | Master password for private key decryption (prompted interactively if omitted) |
+| `--dry-run` | Sign and verify locally without publishing — nothing is uploaded |
+| `--jws-out` | Also write the signed policy to a file, for `attestation publish` |
+
+Signs the current policy version with the project key, checked against the project's public key first, and publishes it. The status is checked before the key is loaded: a disabled project, or one still waiting for its first publish in the console, fails without asking for a password. When the current version is already published, the command succeeds with `Version N is already published - nothing to sign`.
+
+### projects attestation config
+
+```bash
+trustpin-cli projects attestation config <organization-id> <project-id> [--raw]
+```
+
+Prints the payload of the current version exactly as it is to be signed, in the response envelope (`data.payload`), or alone with `--raw`. To sign it with your own tooling, sign it unchanged as a compact JWS with the header `{"alg": "ES256", "typ": "trustpin-attest-policy+jwt", "kid": "tprn::project::<org-id>::<project-id>-key"}`.
+
+### projects attestation publish
+
+```bash
+trustpin-cli projects attestation publish <organization-id> <project-id> --jws <file | -> [--output json]
+```
+
+Publishes a policy signed by `attestation sign --jws-out` or by your own signer. The signature is checked against the project's public key before the upload; the API also requires the signed version to be the current one and newer than the published one.
+
+### projects attestation bundle
+
+```bash
+trustpin-cli projects attestation bundle <organization-id> <project-id> \
+  --format compose|kubernetes|env [--environment <name>] [--out <dir>] [--force]
+```
+
+Downloads the files that deploy the verifier for this project, with its identifiers filled in, the verifier image pinned, and every secret left as a placeholder. Without `--out` the files are printed; with it they are written there, keeping existing files unless `--force` is given. `--environment` picks an environment of the deployment identifiers (default: the only one, else `production`).
+
+### Errors
+
+| Message | Cause |
+|---|---|
+| *App attestation is not set up for this project. Set it up in the TrustPin console.* | No attestation for this project (exit code 5) |
+| *App attestation is disabled for this project. Re-enable it in the TrustPin console.* | Attestation is disabled (exit code 4) |
+| *The first publish must be done in the TrustPin console.* | The project has never been published (exit code 4) |
+| *App attestation is available for projects signed with a cloud key or with your own key (BYOK), not for FIDO-protected projects.* | FIDO-protected project (exit code 4) |
 
 ---
 
