@@ -125,10 +125,10 @@ jobs:
       - name: Sign and publish configuration
         env:
           TRUSTPIN_API_TOKEN: ${{ secrets.TRUSTPIN_API_TOKEN }}
+          TRUSTPIN_MASTER_PASSWORD: ${{ secrets.MASTER_PASSWORD }}
         run: |
           trustpin-cli projects sign \
-            ${{ vars.ORG_ID }} ${{ vars.PROJECT_ID }} \
-            --password ${{ secrets.MASTER_PASSWORD }}
+            ${{ vars.ORG_ID }} ${{ vars.PROJECT_ID }}
 ```
 
 ## Scheduled maintenance: pruning expired pins
@@ -155,6 +155,7 @@ jobs:
       - name: Remove expired pins
         env:
           TRUSTPIN_API_TOKEN: ${{ secrets.TRUSTPIN_API_TOKEN }}
+          TRUSTPIN_MASTER_PASSWORD: ${{ secrets.MASTER_PASSWORD }}
         run: |
           REMOVED=$(trustpin-cli projects cleanup \
             ${{ vars.ORG_ID }} ${{ vars.PROJECT_ID }} \
@@ -162,14 +163,13 @@ jobs:
 
           if [ "$REMOVED" -gt 0 ]; then
             trustpin-cli projects sign \
-              ${{ vars.ORG_ID }} ${{ vars.PROJECT_ID }} \
-              --password ${{ secrets.MASTER_PASSWORD }}
+              ${{ vars.ORG_ID }} ${{ vars.PROJECT_ID }}
           fi
 ```
 
 ## Tips for automated signing
 
-- For **cloud-key** projects, pass the master password with `--password` (from a secret store) to avoid the interactive prompt.
+- For **cloud-key** projects, set `TRUSTPIN_MASTER_PASSWORD` from your secret store (or pipe the password to `--password-stdin`) to avoid the interactive prompt. Do not pass it with `--password`: arguments show up in the process list and in logs.
 - For **BYOK** projects, write the PEM key from your secret store to a temporary file, pass it with `--private-key`, and delete it afterwards.
 - `projects upsert` and `projects cleanup` only stage changes — a pipeline is not done until `projects sign` succeeds.
 - Use `projects jws --verify` as a post-deploy check that the published configuration is live and correctly signed.

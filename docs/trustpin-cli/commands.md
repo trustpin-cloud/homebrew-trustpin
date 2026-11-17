@@ -272,14 +272,31 @@ Sign the project's current configuration as a JWS and publish it to the TrustPin
 
 ```bash
 trustpin-cli projects sign <organization-id> <project-id> \
-  [--private-key <path>] [--password <password>] [--output json]
+  [--private-key <path>] [--password-stdin] [--dry-run] [--output json]
 ```
 
 | Flag | Description |
 |---|---|
 | `-k, --private-key` | Path to a PEM private key file — required for BYOK projects |
-| `-p, --password` | Master password for private key decryption (prompted interactively if omitted) |
+| `--password-stdin` | Read the master password from the first line of standard input |
+| `-p, --password` | **Deprecated.** Master password as an argument — visible in the process list and shell history. Use `TRUSTPIN_MASTER_PASSWORD` or `--password-stdin` |
 | `--dry-run` | Sign and verify locally without publishing — nothing is uploaded |
+
+### Providing the master password
+
+Cloud-key projects, and BYOK keys stored encrypted, need the master password. It is taken from the first of these that is present:
+
+1. `--password-stdin` — the first line of standard input:
+   ```bash
+   vault kv get -field=password secret/trustpin | \
+     trustpin-cli projects sign <organization-id> <project-id> --password-stdin
+   ```
+2. The `TRUSTPIN_MASTER_PASSWORD` environment variable — the usual choice in CI.
+3. An interactive prompt, when the command runs in a terminal.
+
+With no terminal and neither of the first two, the command fails with `PASSWORD_REQUIRED` instead of waiting for input. `projects attestation sign` takes the password the same way.
+
+`--password <value>` is still accepted, with a warning on stderr. Avoid it: arguments are visible to other users of the machine in the process list and are saved in the shell history.
 
 ### Rehearsing with `--dry-run`
 
@@ -448,13 +465,14 @@ trustpin-cli projects attestation update $ORG_ID $PROJECT_ID --file attestation.
 
 ```bash
 trustpin-cli projects attestation sign <organization-id> <project-id> \
-  [--private-key <path>] [--password <password>] [--dry-run] [--jws-out <file>] [--output json]
+  [--private-key <path>] [--password-stdin] [--dry-run] [--jws-out <file>] [--output json]
 ```
 
 | Flag | Description |
 |---|---|
 | `-k, --private-key` | Path to a PEM private key file — required for BYOK projects |
-| `-p, --password` | Master password for private key decryption (prompted interactively if omitted) |
+| `--password-stdin` | Read the master password from the first line of standard input |
+| `-p, --password` | **Deprecated.** Master password as an argument — visible in the process list and shell history. Use `TRUSTPIN_MASTER_PASSWORD` or `--password-stdin` |
 | `--dry-run` | Sign and verify locally without publishing — nothing is uploaded |
 | `--jws-out` | Also write the signed policy to a file, for `attestation publish` |
 
