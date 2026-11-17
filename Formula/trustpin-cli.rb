@@ -1,23 +1,23 @@
 class TrustpinCli < Formula
   desc "TrustPin CLI for certificate pinning management"
   homepage "https://trustpin.cloud"
-  version "7.0.0"
+  version "7.1.0"
 
   if OS.mac?
     if Hardware::CPU.intel?
-      url "https://github.com/trustpin-cloud/homebrew-trustpin-cli/releases/download/v7.0.0/trustpin-cli-macos-x64"
-      sha256 "7f037e7a3e0be8034f5b86132e99d342782b1d734b3c0a0aefbaad17ec00920f"
+      url "https://github.com/trustpin-cloud/homebrew-trustpin-cli/releases/download/v7.1.0/trustpin-cli-macos-x64"
+      sha256 "37e27cd3e6a38e49a9f3c07fa55aec7688e8429ff8cc99e933a841426412383b"
     elsif Hardware::CPU.arm?
-      url "https://github.com/trustpin-cloud/homebrew-trustpin-cli/releases/download/v7.0.0/trustpin-cli-macos-arm64"
-      sha256 "0c10e79c150b7858e652867fc0035f26bc3fcbcbe4ae3e1e8dab4d8e405b91c2"
+      url "https://github.com/trustpin-cloud/homebrew-trustpin-cli/releases/download/v7.1.0/trustpin-cli-macos-arm64"
+      sha256 "b0de376e6352a14c6beda3acbef80314ea0e3c44607438341b26cc22f5045020"
     end
   elsif OS.linux?
     if Hardware::CPU.intel?
-      url "https://github.com/trustpin-cloud/homebrew-trustpin-cli/releases/download/v7.0.0/trustpin-cli-linux-x64"
-      sha256 "c0620be18b0f2df6b2b77c3dbc5f15e5b18b8fe4af2c8680f733f3666aa45836"
+      url "https://github.com/trustpin-cloud/homebrew-trustpin-cli/releases/download/v7.1.0/trustpin-cli-linux-x64"
+      sha256 "3b4fdfa6b55f6206905415e38f43dad6927c63e58c83db098c6051aa2f2e1114"
     elsif Hardware::CPU.arm?
-      url "https://github.com/trustpin-cloud/homebrew-trustpin-cli/releases/download/v7.0.0/trustpin-cli-linux-arm64"
-      sha256 "872d61feaa06a1fb74737c4977eb100119290916e3613a2efdc19968fe0b931e"
+      url "https://github.com/trustpin-cloud/homebrew-trustpin-cli/releases/download/v7.1.0/trustpin-cli-linux-arm64"
+      sha256 "cd66c1c5af8401b4b40246c6fc1fbea75d35a9c3b4d0acfbf4d46e96a66b55af"
     end
   end
 
