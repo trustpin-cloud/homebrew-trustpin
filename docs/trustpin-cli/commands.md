@@ -123,6 +123,8 @@ Domains: 2
     • Domain: api.example.com    (1 pin)
 ```
 
+Right after a project is created, the API looks up each domain's certificates to fill in its first pins. While that lookup is running, or after it has failed, the domain shows a `Pin lookup:` line, and in JSON a `pin_discovery` field set to `pending` or `failed`. When there is nothing to report, the line and the field are left out. A domain whose lookup failed stays without pins until you add them with `projects upsert` or `projects refresh-certs`.
+
 ---
 
 ## projects config
@@ -281,6 +283,13 @@ trustpin-cli projects sign <organization-id> <project-id> \
 | `--password-stdin` | Read the master password from the first line of standard input |
 | `-p, --password` | **Deprecated.** Master password as an argument — visible in the process list and shell history. Use `TRUSTPIN_MASTER_PASSWORD` or `--password-stdin` |
 | `--dry-run` | Sign and verify locally without publishing — nothing is uploaded |
+
+A domain with no pins is signed and published without pins. Depending on how the app is configured, that domain is then either not pinned or not reachable. If the project's pin lookup for such a domain is still running or has failed (see [projects get](#projects-get)), `sign` prints a warning naming the domain and still publishes. With `--output json` the warnings are in a `warnings` list. A dry run reports the same warnings, so a pipeline that must not publish a pinless domain can check first:
+
+```bash
+trustpin-cli projects sign $ORG_ID $PROJECT_ID --dry-run --output json | jq -e '(.data.warnings // []) | length == 0' \
+  && trustpin-cli projects sign $ORG_ID $PROJECT_ID
+```
 
 ### Providing the master password
 
