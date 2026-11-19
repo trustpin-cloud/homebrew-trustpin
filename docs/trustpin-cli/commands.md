@@ -492,7 +492,7 @@ Prints the payload of the current version exactly as it is to be signed, in the 
 trustpin-cli projects attestation publish <organization-id> <project-id> --jws <file | -> [--output json]
 ```
 
-Publishes a policy signed by `attestation sign --jws-out` or by your own signer. The signature is checked against the project's public key before the upload; the API also requires the signed version to be the current one and newer than the published one.
+Publishes a policy signed by `attestation sign --jws-out` or by your own signer. The signature is checked against the project's public key before the upload; the API also requires the signed version to be the current one and newer than the published one. A policy signed by your own signer must contain every field of the payload `attestation config --raw` returned, including `false` values and empty lists; the API refuses one with a field missing.
 
 ### projects attestation bundle
 

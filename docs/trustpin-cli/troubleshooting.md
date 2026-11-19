@@ -70,6 +70,18 @@ $ trustpin-cli projects get <org-id> <project-id> --verbose
 
 A 404 on `projects get` usually means the organization ID and project ID are swapped or belong to a different organization. Find the right IDs with `trustpin-cli user info` (organization) and `trustpin-cli projects list` (project).
 
+### Two jobs changed or published the same project at once
+
+The API lets one request at a time publish a project or change its domains. The CLI waits and tries again a few times by itself. If the other request is still running after that, or it published first, the command fails with exit code 2 and one of these codes (`error_code` with `--output json`):
+
+| Error | Command | What to do |
+|---|---|---|
+| `PUBLISH_IN_PROGRESS` | `projects sign` | Another publish is still running and nothing was uploaded: run the command again |
+| `PUBLISH_CONFLICT` | `projects sign` | The project already has this version or a newer one published: run `projects sign` again, which signs the current configuration |
+| `PROJECT_CHANGE_IN_PROGRESS` | `projects upsert`, `projects refresh-certs`, `projects cleanup` | Another request is changing the project and nothing was changed: run the command again |
+
+To avoid this in CI, do not run two pipelines for the same project at the same time (in GitHub Actions, give the jobs a shared `concurrency` group).
+
 ### Homebrew: "Refusing to load formula … from untrusted tap"
 
 Since Homebrew 6.0, third-party taps need a one-time trust approval:

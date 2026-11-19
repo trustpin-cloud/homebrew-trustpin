@@ -172,6 +172,7 @@ jobs:
 - For **cloud-key** projects, set `TRUSTPIN_MASTER_PASSWORD` from your secret store (or pipe the password to `--password-stdin`) to avoid the interactive prompt. Do not pass it with `--password`: arguments show up in the process list and in logs.
 - For **BYOK** projects, write the PEM key from your secret store to a temporary file, pass it with `--private-key`, and delete it afterwards.
 - `projects upsert` and `projects cleanup` only stage changes — a pipeline is not done until `projects sign` succeeds.
+- Do not run two pipelines for the same project at the same time. The API accepts one publish or domain change per project at a time; the CLI retries briefly, then fails with `PUBLISH_IN_PROGRESS`, `PUBLISH_CONFLICT` or `PROJECT_CHANGE_IN_PROGRESS` (see [Troubleshooting](troubleshooting.md)).
 - Use `projects jws --verify` as a post-deploy check that the published configuration is live and correctly signed.
 
 ## Publishing attestation policies
